@@ -1,0 +1,228 @@
+IMPORT cv2
+
+IMPORT imutils
+
+IMPORT numpy as np
+
+IMPORT argparse
+
+
+
+DEFINE FUNCTION detect(frame):
+
+    SET bounding_box_cordinates, weights TO  HOGCV.detectMultiScale(frame, winStride TO (4, 4), padding TO (8, 8), scale TO 1.03)
+
+    
+
+    SET person TO 1
+
+    FOR x,y,w,h IN bounding_box_cordinates:
+
+        cv2.rectangle(frame, (x,y), (x+w,y+h), (0,255,0), 2)
+
+        cv2.putText(frame, f'person {person}', (x,y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
+
+        person += 1
+
+    
+
+    cv2.putText(frame, 'Status : Detecting ', (40,40), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255,0,0), 2)
+
+    cv2.putText(frame, f'Total Persons : {person-1}', (40,70), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255,0,0), 2)
+
+    cv2.imshow('output', frame)
+
+
+
+    RETURN frame
+
+
+
+DEFINE FUNCTION detectByPathVideo(path, writer):
+
+
+
+    SET video TO cv2.VideoCapture(path)
+
+    SET check, frame TO video.read()
+
+    IF check EQUALS False:
+
+        OUTPUT('Video Not Found. Please Enter a Valid Path (Full path of Video Should be Provided).')
+
+        RETURN
+
+
+
+    OUTPUT('Detecting people...')
+
+    WHILE video.isOpened():
+
+        #check is True IF reading was successful 
+
+        SET check, frame TO  video.read()
+
+
+
+        IF check:
+
+            SET frame TO imutils.resize(frame , width=min(800,frame.shape[1]))
+
+            SET frame TO detect(frame)
+
+            
+
+            IF writer is not None:
+
+                writer.write(frame)
+
+            
+
+            SET key TO cv2.waitKey(1)
+
+            IF key== ord('q'):
+
+                break
+
+        ELSE:
+
+            break
+
+    video.release()
+
+    cv2.destroyAllWindows()
+
+
+
+DEFINE FUNCTION detectByCamera(writer):   
+
+    SET video TO cv2.VideoCapture(0)
+
+    OUTPUT('Detecting people...')
+
+
+
+    WHILE True:
+
+        SET check, frame TO video.read()
+
+
+
+        SET frame TO detect(frame)
+
+        IF writer is not None:
+
+            writer.write(frame)
+
+
+
+        SET key TO cv2.waitKey(1)
+
+        IF key EQUALS ord('q'):
+
+                break
+
+
+
+    video.release()
+
+    cv2.destroyAllWindows()
+
+
+
+DEFINE FUNCTION detectByPathImage(path, output_path):
+
+    SET image TO cv2.imread(path)
+
+
+
+    SET image TO imutils.resize(image, width TO min(800, image.shape[1])) 
+
+
+
+    SET result_image TO detect(image)
+
+
+
+    IF output_path is not None:
+
+        cv2.imwrite(output_path, result_image)
+
+
+
+    cv2.waitKey(0)
+
+    cv2.destroyAllWindows()
+
+DEFINE FUNCTION humanDetector(args):
+
+    SET image_path TO args["image"]
+
+    SET video_path TO args['video']
+
+    SET if str(args["camera"]) EQUALS 'true' : camera TO True 
+
+    SET else : camera TO False
+
+
+
+    SET writer TO None
+
+    IF args['output'] is not None and image_path is None:
+
+        SET writer TO cv2.VideoWriter(args['output'],cv2.VideoWriter_fourcc(*'MJPG'), 10, (600,600))
+
+
+
+    IF camera:
+
+        OUTPUT('[INFO] Opening Web Cam.')
+
+        detectByCamera(writer)
+
+    ELSEIF video_path is not None:
+
+        OUTPUT('[INFO] Opening Video from path.')
+
+        detectByPathVideo(video_path, writer)
+
+    ELSEIF image_path is not None:
+
+        OUTPUT('[INFO] Opening Image from path.')
+
+        detectByPathImage(image_path, args['output'])
+
+
+
+DEFINE FUNCTION argsParser():
+
+    SET arg_parse TO argparse.ArgumentParser()
+
+    arg_parse.add_argument("-v", "--video", default=None, help="path to Video File ")
+
+    arg_parse.add_argument("-i", "--image", default=None, help="path to Image File ")
+
+    arg_parse.add_argument("-c", "--camera", default=False, help="Set true IF you want to use the camera.")
+
+    arg_parse.add_argument("-o", "--output", type=str, help="path to optional output video file")
+
+    SET args TO vars(arg_parse.parse_args())
+
+
+
+    RETURN args
+
+
+
+IF __name__ EQUALS "__main__":
+
+    SET HOGCV TO cv2.HOGDescriptor()
+
+    HOGCV.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
+
+
+    SET args TO argsParser()
+
+    humanDetector(args)
+
